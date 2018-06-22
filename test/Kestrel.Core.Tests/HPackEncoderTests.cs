@@ -11,6 +11,40 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Core.Tests
     public class HPackEncoderTests
     {
         [Fact]
+        public void LowercaseHeaderNamesOnlyWhenEncodingHeaders()
+        {
+
+            var encoder = new HPackEncoder();
+            var headers = new[]
+            {
+                new KeyValuePair<string, string>("CustomHeader", "CustomValue"),
+            };
+
+            var expectedPayload = new byte[]
+            {
+                // 0    12     c     u     s     t     o     m
+                0x00, 0x0c, 0x63, 0x75, 0x73, 0x74, 0x6f, 0x6d,
+                // h     e     a     d     e     r    11     C
+                0x68, 0x65, 0x61, 0x64, 0x65, 0x72, 0x0b, 0x43,
+                // u     s     t     o     m     V     a     l
+                0x75, 0x73, 0x74, 0x6f, 0x6d, 0x56, 0x61, 0x6c,
+                // u     e
+                0x75, 0x65
+            };
+
+            var payload = new byte[1024];
+            Assert.True(encoder.BeginEncode(headers, payload, out var length));
+            Assert.Equal(expectedPayload.Length, length);
+
+            for (var i = 0; i < length; i++)
+            {
+                Assert.True(expectedPayload[i] == payload[i], $"{expectedPayload[i]} != {payload[i]} at {i} (len {length})");
+            }
+
+            Assert.Equal(expectedPayload, new ArraySegment<byte>(payload, 0, length));
+        }
+
+        [Fact]
         public void EncodesHeadersInSinglePayloadWhenSpaceAvailable()
         {
             var encoder = new HPackEncoder();
